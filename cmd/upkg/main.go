@@ -14,25 +14,33 @@ const repoUrl = "https://s-blanco-dev.github.io/ucunix_pkg"
 const installedDatabase = "/etc/upkg/installed.json"
 
 func main() {
-
 	if len(os.Args) < 2 {
-				color.Red("¿Tenés la cabeza plana?\n")
+		color.Red("¿Tenés la cabeza plana?\n")
 		printHelp()
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	switch os.Args[1] {
 	case "install":
+		if len(os.Args) < 3 {
+			color.Red("Uso: upkg install <paquete>\n")
+			os.Exit(1)
+		}
 		installPackage(os.Args[2])
 	case "list":
 		listPackages()
 	case "installed":
 		listInstalled()
 	case "remove":
+		if len(os.Args) < 3 {
+			color.Red("Uso: upkg remove <paquete>\n")
+			os.Exit(1)
+		}
 		removePackage(os.Args[2])
 	case "help":
 		printHelp()
 	default:
+		color.Red("¿Qué intentaste hacer?: %s\n", os.Args[1])
 		printHelp()
 	}
 }

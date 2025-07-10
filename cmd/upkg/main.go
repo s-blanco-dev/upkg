@@ -15,6 +15,12 @@ const installedDatabase = "/etc/upkg/installed.json"
 
 func main() {
 
+	if len(os.Args) < 2 {
+				color.Red("¿Tenés la cabeza plana?\n")
+		printHelp()
+		os.Exit(0)
+	}
+
 	switch os.Args[1] {
 	case "install":
 		installPackage(os.Args[2])
@@ -22,10 +28,11 @@ func main() {
 		listPackages()
 	case "installed":
 		listInstalled()
+	case "remove":
+		removePackage(os.Args[2])
 	case "help":
 		printHelp()
 	default:
-		color.Red("¿Tenés la cabeza plana?\n")
 		printHelp()
 	}
 }
@@ -38,6 +45,17 @@ func installPackage(pkgName string) {
 
 	if err := pak.Install(repoUrl); err != nil {
 		log.Fatalf("Error instalando el paquete: %v", err)
+	}
+}
+
+func removePackage(pkgName string) {
+	pak, err := local.GetInstalledPkg(pkgName)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	if err := pak.Uninstall(); err != nil {
+		log.Fatalf("Error desinstalando el paquete: %v", err)
 	}
 }
 
@@ -58,12 +76,15 @@ func printHelp() {
 	fmt.Println("Santiago Blanco 2025")
 	fmt.Println("---------------------")
 	fmt.Println("Opciones:")
-	fmt.Println("Instalar paquete desde Mullin ->")
-	color.Green("upkg install <paquete>")
+	fmt.Print("Instalar paquete desde Mullin -> ")
+	color.Green("upkg install <paquete>\n")
 
-	fmt.Println("Listar paquetes disponibles en el Mullin ->")
-	color.Green("upkg list")
+	fmt.Print("Listar paquetes disponibles en el Mullin -> ")
+	color.Green("upkg list\n")
 
-	fmt.Println("Listar paquetes instalados ->")
-	color.Green("upkg installed")
+	fmt.Print("Listar paquetes instalados -> ")
+	color.Green("upkg installed\n")
+
+	fmt.Print("Desinstalar un paquete -> ")
+	color.Green("upkg remove <paquete>\n")
 }

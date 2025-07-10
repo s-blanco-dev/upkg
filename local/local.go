@@ -3,6 +3,7 @@ package local
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"ucunix/upkg/pkg"
 
@@ -37,4 +38,31 @@ func ListInstalledPackages(installedPath string) error {
 	}
 
 	return nil
+}
+
+func GetInstalledPkg(name string) (*pkg.Package, error) {
+	path := "/etc/upkg/installed.json"
+
+	file, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var installed []*pkg.Package
+	decodeErr := json.NewDecoder(file).Decode(&installed)
+	if decodeErr != nil && decodeErr != io.EOF {
+		return nil, decodeErr
+	}
+
+	for _, p := range installed {
+		if p.Name == name {
+			return p, nil
+		}
+	}
+
+	return nil, nil
 }

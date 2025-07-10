@@ -33,34 +33,29 @@ func (p *Package) Install(repoURL string) error {
 		return nil
 	}
 
-	// 1. Construir URL del paquete
 	url := fmt.Sprintf("%s/%s/%s", repoURL, p.Name, p.Filename)
-	fmt.Printf("[#   ] Abriendo puerta del Mullin\n")
+	fmt.Printf("[#    ] Abriendo puerta del Mullin\n")
 
-	// 2. Descargar el archivo .tar.gz
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("error al descargar %s: %w", url, err)
 	}
 	defer resp.Body.Close()
-	fmt.Printf("[##  ] Buscando %s en M203\n", p.Name)
+	fmt.Printf("[##   ] Buscando %s en M203\n", p.Name)
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("descarga fallida: %d", resp.StatusCode)
 	}
 
-	// 3. Crear carpeta de instalación si no existe
 	if err := os.MkdirAll(p.InstallPath, 0755); err != nil {
 		return fmt.Errorf("no se pudo crear la carpeta de instalación: %w", err)
 	}
 	fmt.Printf("[###  ] Succionando %s\n", p.Name)
 
-	// 4. Extraer contenido del .tar.gz
 	if err := extractTarGz(resp.Body, p.InstallPath); err != nil {
 		return fmt.Errorf("error extrayendo el paquete: %w", err)
 	}
 
-	// 5. Registrar el paquete como instalado
 	if err := registerInstalledPackage(p); err != nil {
 		return fmt.Errorf("no se pudo registrar el paquete: %w", err)
 	}
@@ -84,10 +79,10 @@ func registerInstalledPackage(pkg *Package) error {
 		}
 	}
 
-	// Agregar el nuevo paquete
+	// agregar el nuevo paquete
 	installed = append(installed, pkg)
 
-	// Guardar el archivo nuevamente
+	// guardar el archivo luego de agregado el paquete
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -111,7 +106,7 @@ func extractTarGz(reader io.Reader, targetDir string) error {
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
-			break // fin del archivo
+			break
 		}
 		if err != nil {
 			return err
@@ -131,7 +126,7 @@ func extractTarGz(reader io.Reader, targetDir string) error {
 			}
 			outFile.Close()
 
-			// Dar permisos ejecutables al archivo
+			// dar permisos de ejecución al binario
 			if err := os.Chmod(path, 0755); err != nil {
 				return err
 			}
@@ -166,4 +161,79 @@ func IsInstalled(pkg *Package) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func (p *Package) Uninstall() error {
+	installed, err := IsInstalled(p)
+	if err != nil {
+		return fmt.Errorf("error verificando instalación: %w", err)
+	}
+	if !installed {
+		color.Yellow("⚠ El paquete %s v%s no está instalado\n", p.Name, p.Version)
+		return nil
+	}
+
+	fmt.Printf("[#    ] Buscando %s en el cubículo del Mullin...\n", p.Name)
+
+	// NO SE OLVIDEN DE AGREGAR EL NOMBRE DEL PAQUETE AL InstallPath.
+	// Accidentalmente borré todo el directorio /bin
+	if err := removePackageFiles(p.InstallPath + "/" + p.Name); err != nil {
+		return fmt.Errorf("error eliminando archivos: %w", err)
+	}
+	fmt.Printf("[##   ] Limpiando restos de %s\n", p.Name)
+
+	if err := unregisterPackage(p); err != nil {
+		return fmt.Errorf("error eliminando registro: %w", err)
+	}
+	fmt.Printf("[###  ] Dando de baja de %s\n", p.Name)
+
+	color.Green("✔ %s v%s desinstalado correctamente\n", p.Name, p.Version)
+	return nil
+}
+
+func removePackageFiles(installPath string) error {
+	if _, err := os.Stat(installPath); os.IsNotExist(err) {
+		return nil // Si la ruta no existe, no eliminar
+	}
+
+	return os.RemoveAll(installPath)
+}
+
+// Elimina el paquete de installed.json
+func unregisterPackage(pkg *Package) error {
+	path := "/etc/upkg/installed.json"
+
+	// Leer lista actual
+	file, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil // Si el archivo no existe, no hay nada que hacer
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	var installed []*Package
+	if err := json.NewDecoder(file).Decode(&installed); err != nil {
+		return err
+	}
+
+	// Filtrar el paquete a eliminar
+	filtered := make([]*Package, 0)
+	for _, p := range installed {
+		if p.Name != pkg.Name || p.Version != pkg.Version {
+			filtered = append(filtered, p)
+		}
+	}
+
+	// Guardar lista actualizada
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	encoder := json.NewEncoder(f)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(filtered)
 }
